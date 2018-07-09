@@ -36,6 +36,12 @@ public class RunTask {
     public static void main(String[] args) {
         JSONObject current = fetchCurrent();
         if (current != null) {
+            JSONArray voteGroups = current.getJSONArray("voteGroups");
+            if (voteGroups == null || voteGroups.length() == 0) {
+                return;
+            }
+            int groupCount = voteGroups.length();
+
             String dateText = DATE_FORMATTER.format(LocalDateTime.now());
             writeText(current.toString(), new File(String.format("data/%s/current.txt", dateText)));
 
@@ -44,8 +50,6 @@ public class RunTask {
 
             String datetimeText = DATE_TIME_FORMATTER.format(LocalDateTime.now());
             writeText(dataText, new File(String.format("data/%s.txt", datetimeText)));
-
-            int groupCount = current.getJSONArray("voteGroups").length();
 
             Handler.handleData(current, data);
             writeText(buildHtml(dateText, groupCount), new File("output/bmoe2018.html"));
