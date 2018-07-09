@@ -4,20 +4,13 @@ import fuhaiwei.bmoe2018.utils.Permutations;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.File;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static fuhaiwei.bmoe2018.autorun.RunTask.DATE_FORMATTER;
-import static fuhaiwei.bmoe2018.autorun.RunTask.DATE_TIME_FORMATTER;
-import static fuhaiwei.bmoe2018.utils.FileUtil.writeText;
-
 public abstract class Handler {
 
-    public static void handleData(JSONObject current, JSONArray data) {
+    public static HandlerResult handleData(JSONObject current, JSONArray data, boolean checkUnion) {
         JSONArray voteGroups = current.getJSONArray("voteGroups");
 
         int groupCount = voteGroups.length();
@@ -71,7 +64,7 @@ public abstract class Handler {
                     increment(groupNameToVote, idToGroupName.get(id));
                 }
 
-                if (voteCount > 1) {
+                if (checkUnion && voteCount > 1) {
                     for (int len = 2; len <= voteCount; len++) {
                         Map<String, Integer> map = unionVoteData.get(len);
                         new Permutations<>(characterIds, new String[len])
@@ -128,14 +121,29 @@ public abstract class Handler {
             }
         }
 
-        String dateTimeText = LocalDateTime.now().format(DATE_TIME_FORMATTER);
-        writeText(builder.toString(), new File(String.format("output/%s.txt", dateTimeText)));
-
-        writeUnionData(idToChnName, unionVoteData);
+        return new HandlerResult(builder.toString(), getUnionData(idToChnName, unionVoteData));
     }
 
-    private static void writeUnionData(Map<Integer, String> idToChnName, Map<Integer, Map<String, Integer>> unionVoteData) {
-        String dateText = LocalDate.now().format(DATE_FORMATTER);
+    public static class HandlerResult {
+        private String voteData;
+        private Map<Integer, String> unionData;
+
+        private HandlerResult(String voteData, Map<Integer, String> unionData) {
+            this.voteData = voteData;
+            this.unionData = unionData;
+        }
+
+        public String getVoteData() {
+            return voteData;
+        }
+
+        public Map<Integer, String> getUnionData() {
+            return unionData;
+        }
+    }
+
+    private static Map<Integer, String> getUnionData(Map<Integer, String> idToChnName, Map<Integer, Map<String, Integer>> unionVoteData) {
+        Map<Integer, String> unionData = new HashMap<>();
         unionVoteData.forEach((voteCount, voteMap) -> {
             Map<String, Integer> treeMap = new TreeMap<>((k1, k2) -> voteMap.get(k2) - voteMap.get(k1));
             treeMap.putAll(voteMap);
@@ -151,8 +159,9 @@ public abstract class Handler {
                         .collect(Collectors.joining(" + "));
                 builder.append(collect).append(" = ").append(v).append("\n");
             });
-            writeText(builder.toString(), new File(String.format("output/%s/连记%d.txt", dateText, voteCount)));
+            unionData.put(voteCount, builder.toString());
         });
+        return unionData;
     }
 
     private static JSONObject[] getCharacters(Map<Integer, Integer> idToVote, Map<Integer, Integer> idToLove, JSONObject group) {

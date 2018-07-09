@@ -8,8 +8,11 @@ import org.jsoup.Jsoup;
 
 import java.io.File;
 import java.io.IOException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import static java.time.format.DateTimeFormatter.ofPattern;
 
 public abstract class BmoeSpider {
 
@@ -77,8 +80,8 @@ public abstract class BmoeSpider {
         int err = 0;
         while (true) {
             try {
-                String date = RunTask.DATE_FORMATTER.format(LocalDateTime.now());
-                String pathname = String.format("data/%s/page/%05d.txt", date, page);
+                String dateText = LocalDate.now().format(ofPattern("yyyy-MM-dd"));
+                String pathname = String.format("data/%s/page/%05d.txt", dateText, page);
                 File file = new File(pathname);
                 String jsonText;
                 if (!file.exists() || !isFullData(jsonText = FileUtil.readText(pathname))) {
