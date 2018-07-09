@@ -1,3 +1,4 @@
+bmoe2018(fileNames, fileContents) ::= <<
 <!DOCTYPE html>
 <html lang="zh-cn">
 <head>
@@ -12,9 +13,29 @@
   <![endif]-->
 </head>
 <body>
-
+<ul class="nav nav-tabs">
+  $fileNames$
+</ul>
+<div class="tab-content" style="padding: 8px">
+  $fileContents$
+</div>
 <script src="https://apps.bdimg.com/libs/jquery/1.11.1/jquery.min.js"></script>
 <script src="https://apps.bdimg.com/libs/bootstrap/3.3.0/js/bootstrap.min.js"></script>
 <script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1273538215'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s13.cnzz.com/z_stat.php%3Fid%3D1273538215%26online%3D2' type='text/javascript'%3E%3C/script%3E"));</script>
 </body>
 </html>
+>>
+
+fileName(fileId, fileName, active) ::= <<
+<li $if(active)$ class="active" $endif$>
+  <a href="#$fileId$" data-toggle="tab">
+    $fileName$
+  </a>
+</li>
+>>
+
+fileContent(fileId, fileContent, active) ::= <<
+<div class="tab-pane fade $if(active)$ in active $endif$" id="$fileId$">
+  $fileContent:{v | <p>$v$</p>}$
+</div>
+>>
