@@ -13,6 +13,9 @@ bmoe2018(fileNames, fileContents) ::= <<
   <![endif]-->
 </head>
 <body>
+<div style="padding: 16px">
+  之前的比赛数据下载，<a href="https://pan.baidu.com/s/1gcZ1AWIXyhNNSSWRV4ScRA">百度网盘下载</a>
+</div>
 <ul class="nav nav-tabs">
   $fileNames$
 </ul>
