@@ -15,7 +15,10 @@ import static fuhaiwei.bmoe2018.utils.FileUtil.writeText;
 public abstract class Handler {
 
     public static void handleData(JSONObject current, JSONArray data) {
-        System.out.println("数据分析中...");
+        JSONArray voteGroups = current.getJSONArray("voteGroups");
+
+        int groupCount = voteGroups.length();
+        int dataCount = data.length();
 
         Map<Integer, String> idToChnName = new LinkedHashMap<>();
         Map<Integer, String> idToGroupName = new HashMap<>();
@@ -26,9 +29,10 @@ public abstract class Handler {
         Map<String, Integer> groupPersonCount = new HashMap<>();
         Map<Integer, Integer> personVoteCount = new HashMap<>();
 
-        JSONArray voteGroups = current.getJSONArray("voteGroups");
 
-        for (int i = 0; i < voteGroups.length(); i++) {
+        System.out.println("数据分析中...");
+
+        for (int i = 0; i < groupCount; i++) {
             JSONObject group = voteGroups.getJSONObject(i);
             String groupName = group.getString("group_name");
 
@@ -41,10 +45,9 @@ public abstract class Handler {
             }
         }
 
-        int totalPersonCount = data.length();
         System.out.println("投票统计中...");
 
-        for (int i = 0; i < totalPersonCount; i++) {
+        for (int i = 0; i < dataCount; i++) {
             JSONObject vote = data.getJSONObject(i);
             String[] characterIds = vote.getString("character_ids").split(",");
             if (vote.getInt("type") == 1) {
@@ -65,31 +68,11 @@ public abstract class Handler {
         System.out.println("报表生成中...");
 
         StringBuilder builder = new StringBuilder();
-        builder.append(current.getString("title"));
-        appendQuote(builder, "本日总投票人数: " + totalPersonCount);
-        builder.append("\n<br/>\n");
 
-        Integer loveVoteCount = personVoteCount.get(0);
-        builder.append("本日技术分析: \n");
+        appendHeader(builder, current, dataCount);
+        appendVoteData(builder, personVoteCount, groupCount, dataCount);
 
-        if (loveVoteCount != null) {
-            builder.append("投真爱人数: ");
-            builder.append(loveVoteCount);
-            appendQuote(builder, percent(loveVoteCount, totalPersonCount));
-            builder.append("\n");
-        }
-
-        for (int i = 0; i < voteGroups.length(); i++) {
-            Integer countVoteCount = personVoteCount.get(i + 1);
-            if (countVoteCount != null) {
-                builder.append("投").append(i + 1).append("票人数: ").append(countVoteCount);
-                appendQuote(builder, percent(countVoteCount, totalPersonCount));
-                builder.append("\n");
-            }
-        }
-        builder.append("<br/>\n");
-
-        for (int i = 0; i < voteGroups.length(); i++) {
+        for (int i = 0; i < groupCount; i++) {
             JSONObject group = voteGroups.getJSONObject(i);
             String groupName = group.getString("group_name");
             Integer groupVoteCount = groupPersonCount.get(groupName);
@@ -98,40 +81,34 @@ public abstract class Handler {
             builder.append(groupName);
             builder.append("====");
             if (groupVoteCount != null) {
-                appendQuote(builder, "小组投票总人数: " + groupVoteCount + ", " + percent(groupVoteCount, totalPersonCount));
+                String groupVoteData = String.format("小组投票总人数: %d, %s",
+                        groupVoteCount, percent(groupVoteCount, dataCount));
+                appendQuote(builder, groupVoteData);
             }
             builder.append("\n");
 
-            JSONArray characters = group.getJSONArray("characters");
-            JSONObject[] array = new JSONObject[characters.length()];
-            for (int j = 0; j < characters.length(); j++) {
-                array[j] = characters.getJSONObject(j);
-            }
-            Arrays.sort(array, (o1, o2) -> {
-                int finalVote1 = getFinalVote(idToLove, idToVote, o1.getInt("character_id"));
-                int finalVote2 = getFinalVote(idToLove, idToVote, o2.getInt("character_id"));
-                return finalVote2 - finalVote1;
-            });
+            JSONObject[] characters = getCharacters(idToVote, idToLove, group);
 
-            int lastFinalVote = 0;
-            for (int j = 0; j < array.length; j++) {
-                Integer characterId = array[j].getInt("character_id");
-                String chnName = array[j].getString("chn_name");
+            int prevVote = 0;
+            for (int j = 0; j < characters.length; j++) {
+                String chnName = characters[j].getString("chn_name");
+                Integer id = characters[j].getInt("character_id");
+                int voteCount = safeGet(idToVote, id);
+                int loveCount = safeGet(idToLove, id);
+                int thisCount = voteCount + loveCount * 2;
+                
                 builder.append(chnName);
                 builder.append("\n");
-                int voteCount = idToVote.getOrDefault(characterId, 0);
-                int loveCount = idToLove.getOrDefault(characterId, 0);
-                int finalCount = voteCount + loveCount * 2;
-                builder.append("总票数: ").append(finalCount);
+                builder.append("总票数: ").append(thisCount);
                 if (j != 0) {
-                    appendQuote(builder, "落后" + (lastFinalVote - finalCount) + "票");
+                    appendQuote(builder, "落后" + (prevVote - thisCount) + "票");
                 }
                 builder.append("\n");
                 builder.append("普通票: ").append(voteCount);
                 builder.append("\n");
                 builder.append("真爱票: ").append(loveCount);
                 builder.append("\n<br/>\n");
-                lastFinalVote = finalCount;
+                prevVote = thisCount;
             }
         }
 
@@ -145,7 +122,7 @@ public abstract class Handler {
             for (int j = i + 1; j < characterIds.length; j++) {
                 int characterId1 = characterIds[i];
                 int characterId2 = characterIds[j];
-                for (int k = 0; k < totalPersonCount; k++) {
+                for (int k = 0; k < dataCount; k++) {
                     JSONObject vote = data.getJSONObject(k);
                     String[] split = vote.getString("character_ids").split(",");
                     if (vote.getInt("type") == 0) {
@@ -186,6 +163,48 @@ public abstract class Handler {
         writeText(builder3.toString(), new File(String.format("output/%s/连记票-票数顺序.txt", dateText)));
     }
 
+    private static JSONObject[] getCharacters(Map<Integer, Integer> idToVote, Map<Integer, Integer> idToLove, JSONObject group) {
+        JSONArray characters = group.getJSONArray("characters");
+        JSONObject[] array = new JSONObject[characters.length()];
+        for (int j = 0; j < characters.length(); j++) {
+            JSONObject character = characters.getJSONObject(j);
+            Integer id = character.getInt("character_id");
+            character.put("voteCount", safeGet(idToLove, id) * 2 + safeGet(idToVote, id));
+            array[j] = character;
+        }
+        Arrays.sort(array, (o1, o2) -> o2.getInt("voteCount") - o1.getInt("voteCount"));
+        return array;
+    }
+
+    private static void appendHeader(StringBuilder builder, JSONObject current, int dataCount) {
+        builder.append(current.getString("title"));
+        appendQuote(builder, "本日总投票人数: " + dataCount);
+        builder.append("\n<br/>\n");
+    }
+
+    private static void appendVoteData(StringBuilder builder, Map<Integer, Integer> personVoteCount,
+                                       int groupCount, int dataCount) {
+        Integer loveVoteCount = personVoteCount.get(0);
+        builder.append("本日技术分析: \n");
+
+        if (loveVoteCount != null) {
+            builder.append("投真爱人数: ");
+            builder.append(loveVoteCount);
+            appendQuote(builder, percent(loveVoteCount, dataCount));
+            builder.append("\n");
+        }
+
+        for (int i = 0; i < groupCount; i++) {
+            Integer countVoteCount = personVoteCount.get(i + 1);
+            if (countVoteCount != null) {
+                builder.append("投").append(i + 1).append("票人数: ").append(countVoteCount);
+                appendQuote(builder, percent(countVoteCount, dataCount));
+                builder.append("\n");
+            }
+        }
+        builder.append("<br/>\n");
+    }
+
     private static void handleRow(Map<Integer, String> nameMap, StringBuilder builder2, String k, Integer v) {
         String[] split = k.split(",");
         String name1 = nameMap.get(Integer.parseInt(split[0]));
@@ -198,8 +217,12 @@ public abstract class Handler {
         builder2.append("\n");
     }
 
+    private static <T> Integer safeGet(Map<T, Integer> map, T key) {
+        return map.getOrDefault(key, 0);
+    }
+
     private static <T> void increment(Map<T, Integer> map, T key) {
-        map.put(key, map.getOrDefault(key, 0) + 1);
+        map.put(key, safeGet(map, key) + 1);
     }
 
     private static String percent(double a, double b) {
@@ -210,10 +233,6 @@ public abstract class Handler {
         builder.append(" (");
         builder.append(string);
         builder.append(")");
-    }
-
-    private static int getFinalVote(Map<Integer, Integer> idToLove, Map<Integer, Integer> idToVote, Integer id) {
-        return idToLove.getOrDefault(id, 0) * 2 + idToVote.getOrDefault(id, 0);
     }
 
 }
