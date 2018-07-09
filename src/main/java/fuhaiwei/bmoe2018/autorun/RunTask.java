@@ -45,38 +45,40 @@ public class RunTask {
             String datetimeText = DATE_TIME_FORMATTER.format(LocalDateTime.now());
             writeText(dataText, new File(String.format("data/%s.txt", datetimeText)));
 
+            int groupCount = current.getJSONArray("voteGroups").length();
+
             Handler.handleData(current, data);
-            writeText(buildHtml(dateText), new File("output/bmoe2018.html"));
+            writeText(buildHtml(dateText, groupCount), new File("output/bmoe2018.html"));
         }
         System.out.println("Done!");
     }
 
-    private static String buildHtml(String date) {
-        File[] files = new File("output/" + date)
+    private static String buildHtml(String dateText, int groupCount) {
+        File[] files = new File("output/" + dateText)
                 .listFiles(pathname -> pathname.isFile() && pathname.getName().endsWith(".txt"));
         Objects.requireNonNull(files);
-        
+
         Arrays.sort(files, Comparator.reverseOrder());
 
         ST bmoe2018 = ST_GROUP_FILE.getInstanceOf("bmoe2018");
 
         bmoe2018.add("fileNames", IntStream.range(0, files.length).boxed()
-                .map(index -> buildFileName(files, index)).toArray());
+                .map(index -> buildFileName(files, index, groupCount)).toArray());
         bmoe2018.add("fileContents", IntStream.range(0, files.length).boxed()
-                .map(index -> buildFileContent(files, index)).toArray());
+                .map(index -> buildFileContent(files, index, groupCount)).toArray());
 
         return bmoe2018.render();
     }
 
-    private static String buildFileName(File[] files, int index) {
+    private static String buildFileName(File[] files, int index, int groupCount) {
         ST fileName = ST_GROUP_FILE.getInstanceOf("fileName");
         fileName.add("fileId", "txt" + index);
         fileName.add("fileName", files[index].getName());
-        fileName.add("active", index == 2);
+        fileName.add("active", index == groupCount - 1);
         return fileName.render();
     }
 
-    private static String buildFileContent(File[] files, int index) {
+    private static String buildFileContent(File[] files, int index, int groupCount) {
         ST fileContent = ST_GROUP_FILE.getInstanceOf("fileContent");
         fileContent.add("fileId", "txt" + index);
         try {
@@ -84,7 +86,7 @@ public class RunTask {
         } catch (IOException e) {
             fileContent.add("fileContent", e.getMessage());
         }
-        fileContent.add("active", index == 2);
+        fileContent.add("active", index == groupCount - 1);
         return fileContent.render();
     }
 

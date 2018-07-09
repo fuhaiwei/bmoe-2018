@@ -1,5 +1,6 @@
 package fuhaiwei.bmoe2018.handler;
 
+import fuhaiwei.bmoe2018.utils.Permutations;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -7,6 +8,8 @@ import java.io.File;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static fuhaiwei.bmoe2018.autorun.RunTask.DATE_FORMATTER;
 import static fuhaiwei.bmoe2018.autorun.RunTask.DATE_TIME_FORMATTER;
@@ -26,9 +29,9 @@ public abstract class Handler {
         Map<Integer, Integer> idToVote = new HashMap<>();
         Map<Integer, Integer> idToLove = new HashMap<>();
 
-        Map<String, Integer> groupPersonCount = new HashMap<>();
-        Map<Integer, Integer> personVoteCount = new HashMap<>();
-
+        Map<String, Integer> groupNameToVote = new HashMap<>();
+        Map<Integer, Integer> voteCountCount = new HashMap<>();
+        Map<Integer, Map<String, Integer>> unionVoteData = new HashMap<>();
 
         System.out.println("数据分析中...");
 
@@ -43,6 +46,10 @@ public abstract class Handler {
                 idToChnName.put(characterId, character.getString("chn_name"));
                 idToGroupName.put(characterId, groupName);
             }
+
+            if (i > 0) {
+                unionVoteData.put(i + 1, new HashMap<>());
+            }
         }
 
         System.out.println("投票统计中...");
@@ -51,16 +58,25 @@ public abstract class Handler {
             JSONObject vote = data.getJSONObject(i);
             String[] characterIds = vote.getString("character_ids").split(",");
             if (vote.getInt("type") == 1) {
-                increment(personVoteCount, 0);
+                increment(voteCountCount, 0);
                 Integer id = Integer.valueOf(characterIds[0]);
                 increment(idToLove, id);
-                increment(groupPersonCount, idToGroupName.get(id));
+                increment(groupNameToVote, idToGroupName.get(id));
             } else {
-                increment(personVoteCount, characterIds.length);
+                int voteCount = characterIds.length;
+                increment(voteCountCount, voteCount);
                 for (String characterId : characterIds) {
                     Integer id = Integer.valueOf(characterId);
                     increment(idToVote, id);
-                    increment(groupPersonCount, idToGroupName.get(id));
+                    increment(groupNameToVote, idToGroupName.get(id));
+                }
+
+                if (voteCount > 1) {
+                    for (int len = 2; len <= voteCount; len++) {
+                        Map<String, Integer> map = unionVoteData.get(len);
+                        new Permutations<>(characterIds, new String[len])
+                                .forEach(result -> increment(map, String.join(",", result)));
+                    }
                 }
             }
         }
@@ -70,12 +86,12 @@ public abstract class Handler {
         StringBuilder builder = new StringBuilder();
 
         appendHeader(builder, current, dataCount);
-        appendVoteData(builder, personVoteCount, groupCount, dataCount);
+        appendVoteData(builder, voteCountCount, groupCount, dataCount);
 
         for (int i = 0; i < groupCount; i++) {
             JSONObject group = voteGroups.getJSONObject(i);
             String groupName = group.getString("group_name");
-            Integer groupVoteCount = groupPersonCount.get(groupName);
+            Integer groupVoteCount = groupNameToVote.get(groupName);
 
             builder.append("====");
             builder.append(groupName);
@@ -96,7 +112,7 @@ public abstract class Handler {
                 int voteCount = safeGet(idToVote, id);
                 int loveCount = safeGet(idToLove, id);
                 int thisCount = voteCount + loveCount * 2;
-                
+
                 builder.append(chnName);
                 builder.append("\n");
                 builder.append("总票数: ").append(thisCount);
@@ -115,52 +131,28 @@ public abstract class Handler {
         String dateTimeText = LocalDateTime.now().format(DATE_TIME_FORMATTER);
         writeText(builder.toString(), new File(String.format("output/%s.txt", dateTimeText)));
 
-        Map<String, Integer> voteMap = new LinkedHashMap<>();
+        writeUnionData(idToChnName, unionVoteData);
+    }
 
-        Integer[] characterIds = idToChnName.keySet().toArray(new Integer[0]);
-        for (int i = 0; i < characterIds.length; i++) {
-            for (int j = i + 1; j < characterIds.length; j++) {
-                int characterId1 = characterIds[i];
-                int characterId2 = characterIds[j];
-                for (int k = 0; k < dataCount; k++) {
-                    JSONObject vote = data.getJSONObject(k);
-                    String[] split = vote.getString("character_ids").split(",");
-                    if (vote.getInt("type") == 0) {
-                        int voteCount = 0;
-                        for (String characterId : split) {
-                            int id = Integer.parseInt(characterId);
-                            if (id == characterId1) {
-                                voteCount++;
-                            }
-                            if (id == characterId2) {
-                                voteCount++;
-                            }
-                        }
-                        if (voteCount == 2) {
-                            String key = characterId1 + "," + characterId2;
-                            increment(voteMap, key);
-                        }
-                    }
-                }
-            }
-        }
-
+    private static void writeUnionData(Map<Integer, String> idToChnName, Map<Integer, Map<String, Integer>> unionVoteData) {
         String dateText = LocalDate.now().format(DATE_FORMATTER);
+        unionVoteData.forEach((voteCount, voteMap) -> {
+            Map<String, Integer> treeMap = new TreeMap<>((k1, k2) -> voteMap.get(k2) - voteMap.get(k1));
+            treeMap.putAll(voteMap);
 
-        StringBuilder builder2 = new StringBuilder();
-        builder2.append("====连记票分析====");
-        builder2.append("\n");
-        voteMap.forEach((k, v) -> handleRow(idToChnName, builder2, k, v));
-        writeText(builder2.toString(), new File(String.format("output/%s/连记票-分组顺序.txt", dateText)));
-
-        Map<String, Integer> treeMap = new TreeMap<>((k1, k2) -> voteMap.get(k2) - voteMap.get(k1));
-        treeMap.putAll(voteMap);
-
-        StringBuilder builder3 = new StringBuilder();
-        builder3.append("====连记票分析====");
-        builder3.append("\n");
-        treeMap.forEach((k, v) -> handleRow(idToChnName, builder3, k, v));
-        writeText(builder3.toString(), new File(String.format("output/%s/连记票-票数顺序.txt", dateText)));
+            StringBuilder builder = new StringBuilder();
+            builder.append("====");
+            builder.append(voteCount);
+            builder.append("连记分析====");
+            builder.append("\n");
+            treeMap.forEach((k, v) -> {
+                String collect = Stream.of(k.split(","))
+                        .map(idText -> idToChnName.get(Integer.valueOf(idText)))
+                        .collect(Collectors.joining(" + "));
+                builder.append(collect).append(" = ").append(v).append("\n");
+            });
+            writeText(builder.toString(), new File(String.format("output/%s/连记%d.txt", dateText, voteCount)));
+        });
     }
 
     private static JSONObject[] getCharacters(Map<Integer, Integer> idToVote, Map<Integer, Integer> idToLove, JSONObject group) {
@@ -203,18 +195,6 @@ public abstract class Handler {
             }
         }
         builder.append("<br/>\n");
-    }
-
-    private static void handleRow(Map<Integer, String> nameMap, StringBuilder builder2, String k, Integer v) {
-        String[] split = k.split(",");
-        String name1 = nameMap.get(Integer.parseInt(split[0]));
-        String name2 = nameMap.get(Integer.parseInt(split[1]));
-        builder2.append(name1);
-        builder2.append(" + ");
-        builder2.append(name2);
-        builder2.append(" = ");
-        builder2.append(v);
-        builder2.append("\n");
     }
 
     private static <T> Integer safeGet(Map<T, Integer> map, T key) {
