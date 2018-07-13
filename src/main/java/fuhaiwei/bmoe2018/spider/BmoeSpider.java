@@ -15,7 +15,7 @@ import static java.time.format.DateTimeFormatter.ofPattern;
 public abstract class BmoeSpider {
 
     public static JSONObject fetchCurrent() {
-        String url = "https://api.bilibili.com/pgc/moe/2018/1/api/schedule/current";
+        String url = "https://api.bilibili.com/pgc/moe/2018/2/api/schedule/current";
         int err = 0;
         while (true) {
             try {
@@ -72,7 +72,7 @@ public abstract class BmoeSpider {
     }
 
     private static JSONArray fetchData(int start, int step) {
-        String url = "https://api.bilibili.com/pgc/moe/2018/1/web/realtime/votes?pn=%d";
+        String url = "https://api.bilibili.com/pgc/moe/2018/2/web/realtime/votes?pn=%d";
         JSONArray array = new JSONArray();
         int page = start;
         int err = 0;
