@@ -16,7 +16,6 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Objects;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import static fuhaiwei.bmoe2018.handler.Handler.handleData;
 import static fuhaiwei.bmoe2018.spider.BmoeSpider.fetchCurrent;
