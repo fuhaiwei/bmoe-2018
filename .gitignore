@@ -5,3 +5,4 @@
 !/pom.xml
 !/src
 !/web
+!*.sh

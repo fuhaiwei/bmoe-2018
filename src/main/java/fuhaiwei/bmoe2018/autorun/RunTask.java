@@ -33,19 +33,6 @@ public class RunTask {
     }
 
     public static void main(String[] args) {
-//        Stream.of(
-//                "2018-07-04",
-//                "2018-07-05",
-//                "2018-07-06",
-//                "2018-07-07",
-//                "2018-07-08",
-//                "2018-07-09"
-//        ).forEach(RunTask::rebuild);
-        runFetchTask();
-        System.out.println("Done!");
-    }
-
-    private static void runFetchTask() {
         JSONObject current = fetchCurrent();
         if (current != null) {
             JSONArray voteGroups = current.getJSONArray("voteGroups");
@@ -69,9 +56,10 @@ public class RunTask {
 
             writeText(buildHtml(dateText, groupCount), new File("output/bmoe2018.html"));
         }
+        System.out.println("Done!");
     }
 
-    private static void rebuild(String dateText) {
+    public static void rebuild(String dateText) {
         try {
             System.out.println("Rebuild: " + dateText);
             String currentText = readText(String.format("data/%s/current.txt", dateText));
