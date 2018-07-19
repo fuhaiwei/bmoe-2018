@@ -68,10 +68,15 @@ private fun getVoteInfo(): String {
                     builder.append("得票率: ${String.format("%.2f%%", thisRatio / 100.0)}")
                     if (hasPrev) {
                         val prevResult = it.getJSONArray("prevResult")
-                        val prevChn = prevResult.getJSONObject(j)
-                        val prevRatio = prevChn.getInt("ballot_ratio")
-                        val diffRatio = thisRatio - prevRatio
-                        builder.append(" (${String.format("%+.2f%%", diffRatio / 100.0)})")
+                        for (k in 0..prevResult.length()) {
+                            val prevChn = prevResult.getJSONObject(k)
+                            if (prevChn.getInt("character_id") == thisChn.getInt("character_id")) {
+                                val prevRatio = prevChn.getInt("ballot_ratio")
+                                val diffRatio = thisRatio - prevRatio
+                                builder.append(" (${String.format("%+.2f%%", diffRatio / 100.0)})")
+                                break
+                            }
+                        }
                     }
                     builder.append('\n')
                     builder.append("<br>")
