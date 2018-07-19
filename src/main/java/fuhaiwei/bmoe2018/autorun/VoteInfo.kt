@@ -1,5 +1,6 @@
 package fuhaiwei.bmoe2018.autorun
 
+import fuhaiwei.bmoe2018.utils.FileUtil.readText
 import fuhaiwei.bmoe2018.utils.FileUtil.writeText
 import fuhaiwei.bmoe2018.utils.HtmlUtil.buildHtml
 import org.json.JSONObject
@@ -37,30 +38,47 @@ private fun getVoteInfo(): String {
             builder.append("<br>")
             builder.append('\n')
 
-            fetchResult("https://api.bilibili.com/pgc/moe/2018/2/api/schedule/ranking?group_id=${voteGroup["group_id"]}", Consumer {
+            fetchGroup(voteGroup.getInt("group_id"), Consumer {
                 val voteInfo = it.getJSONArray("result")
+                val hasPrev = it.has("prevResult")
                 val length = Math.min(10, voteInfo.length())
 
-                var prevVote = 0
-                for (j in 0 until length) {
-                    val chn = voteInfo.getJSONObject(j)
-                    val thisVote = chn.getInt("ballot_sum")
+                var prevSum = 0
+                var prevNum = 0
 
-                    builder.append("${j + 1}: ${chn["chn_name"]}")
+                for (j in 0 until length) {
+                    val thisChn = voteInfo.getJSONObject(j)
+
+                    val thisSum = thisChn.getInt("ballot_sum")
+                    val thisNum = thisChn.getInt("ballot_num")
+                    val thisRatio = thisChn.getInt("ballot_ratio")
+
+                    builder.append("${j + 1}: ${thisChn["chn_name"]}")
                     builder.append('\n')
-                    builder.append("总票数: $thisVote")
+                    builder.append("总票数: $thisSum")
                     if (j > 0) {
-                        builder.append(" (落后: ${prevVote - thisVote}票)")
+                        builder.append(" (落后: ${prevSum - thisSum}票)")
                     }
                     builder.append('\n')
-                    builder.append("票增数: ${chn["ballot_num"]}")
+                    builder.append("票增数: $thisNum")
+                    if (j > 0) {
+                        builder.append(" (追赶: ${thisNum - prevNum}票)")
+                    }
                     builder.append('\n')
-                    builder.append("得票率: ${String.format("%.2f%%", chn.getInt("ballot_ratio") / 100.0)}")
+                    builder.append("得票率: ${String.format("%.2f%%", thisRatio / 100.0)}")
+                    if (hasPrev) {
+                        val prevResult = it.getJSONArray("prevResult")
+                        val prevChn = prevResult.getJSONObject(j)
+                        val prevRatio = prevChn.getInt("ballot_ratio")
+                        val diffRatio = thisRatio - prevRatio
+                        builder.append(" (${String.format("%+.2f%%", diffRatio / 100.0)})")
+                    }
                     builder.append('\n')
                     builder.append("<br>")
                     builder.append('\n')
 
-                    prevVote = thisVote
+                    prevSum = thisSum
+                    prevNum = thisNum
                 }
             })
         }
@@ -77,4 +95,20 @@ fun fetchResult(url: String, consumer: Consumer<JSONObject>) {
     if (root.getInt("code") == 0 && root.getString("message") == "success") {
         consumer.accept(root)
     }
+}
+
+fun fetchGroup(groupId: Int, consumer: Consumer<JSONObject>) {
+    fetchResult("https://api.bilibili.com/pgc/moe/2018/2/api/schedule/ranking?group_id=$groupId", Consumer {
+        val thisText = it.toString()
+        try {
+            val readText = readText("output/data/$groupId")
+            if (thisText != readText) {
+                it.put("prevResult", JSONObject(readText).getJSONArray("result"))
+                println("prev result set")
+            }
+        } catch (e: Exception) {
+        }
+        writeText(thisText, File("output/data/$groupId"))
+        consumer.accept(it)
+    })
 }
