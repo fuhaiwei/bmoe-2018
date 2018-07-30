@@ -215,19 +215,6 @@ public abstract class Handler {
         return unionData;
     }
 
-    private static JSONObject[] getCharacters(Map<Integer, Integer> idToVote, Map<Integer, Integer> idToLove, JSONObject group) {
-        JSONArray characters = group.getJSONArray("characters");
-        JSONObject[] array = new JSONObject[characters.length()];
-        for (int j = 0; j < characters.length(); j++) {
-            JSONObject character = characters.getJSONObject(j);
-            Integer id = character.getInt("character_id");
-            character.put("voteCount", safeGet(idToLove, id) * 2 + safeGet(idToVote, id));
-            array[j] = character;
-        }
-        Arrays.sort(array, (o1, o2) -> o2.getInt("voteCount") - o1.getInt("voteCount"));
-        return array;
-    }
-
     private static void appendHeader(StringBuilder builder, JSONObject current, int dataCount) {
         builder.append(current.getString("title"));
         appendQuote(builder, "本日总投票人数: " + dataCount);
@@ -298,8 +285,7 @@ public abstract class Handler {
             String readText = null;
             try {
                 readText = readText("output/data/" + groupId);
-            } catch (IOException e) {
-                e.printStackTrace();
+            } catch (IOException ignored) {
             }
             if (readText != null && !thisText.equals(readText)) {
                 root.put("prevResult", new JSONObject(readText).getJSONArray("result"));
