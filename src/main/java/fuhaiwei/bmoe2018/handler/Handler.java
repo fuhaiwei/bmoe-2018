@@ -3,10 +3,17 @@ package fuhaiwei.bmoe2018.handler;
 import fuhaiwei.bmoe2018.utils.Permutations;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.jsoup.Jsoup;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static fuhaiwei.bmoe2018.utils.FileUtil.readText;
+import static fuhaiwei.bmoe2018.utils.FileUtil.writeText;
 
 public abstract class Handler {
 
@@ -96,29 +103,73 @@ public abstract class Handler {
             }
             builder.append("\n");
 
-            JSONObject[] characters = getCharacters(idToVote, idToLove, group);
+            fetchGroup(group.getInt("group_id"), root -> {
+                JSONArray voteInfo = root.getJSONArray("result");
+                boolean hasPrev = root.has("prevResult");
 
-            int prevVote = 0;
-            for (int j = 0; j < characters.length; j++) {
-                String chnName = characters[j].getString("chn_name");
-                Integer id = characters[j].getInt("character_id");
-                int voteCount = safeGet(idToVote, id);
-                int loveCount = safeGet(idToLove, id);
-                int thisCount = voteCount + loveCount * 2;
+                int prevSum = 0;
+                int prevNum = 0;
 
-                builder.append(chnName);
-                builder.append("\n");
-                builder.append("总票数: ").append(thisCount);
-                if (j != 0) {
-                    appendQuote(builder, "落后" + (prevVote - thisCount) + "票");
+                for (int j = 0; j < voteInfo.length(); j++) {
+                    JSONObject thisChn = voteInfo.getJSONObject(j);
+
+                    int thisSum = thisChn.getInt("ballot_sum");
+                    int thisNum = thisChn.getInt("ballot_num");
+                    int thisRatio = thisChn.getInt("ballot_ratio");
+                    int thisChnId = thisChn.getInt("character_id");
+                    int loveCount = safeGet(idToLove, thisChnId);
+
+                    builder.append(j + 1);
+                    builder.append(": ");
+                    builder.append(thisChn.getString("chn_name"));
+                    builder.append('\n');
+
+                    builder.append("总票数: ");
+                    builder.append(thisSum);
+                    if (j > 0) {
+                        builder.append(" (落后: ");
+                        builder.append(prevSum - thisSum);
+                        builder.append("票)");
+                    }
+                    builder.append('\n');
+
+                    builder.append("票增数: ");
+                    builder.append(thisNum);
+                    if (j > 0) {
+                        builder.append(" (追赶: ");
+                        builder.append(+(thisNum - prevNum));
+                        builder.append("票)");
+                    }
+                    builder.append('\n');
+
+                    builder.append("得票率: ");
+                    builder.append(String.format("%.2f%%", thisRatio / 100.0));
+                    if (hasPrev) {
+                        JSONArray prevResult = root.getJSONArray("prevResult");
+                        for (int k = 0; k < prevResult.length(); k++) {
+                            JSONObject prevChn = prevResult.getJSONObject(k);
+                            if (prevChn.getInt("character_id") == thisChn.getInt("character_id")) {
+                                int prevRatio = prevChn.getInt("ballot_ratio");
+                                int diffRatio = thisRatio - prevRatio;
+                                builder.append(" (");
+                                builder.append(String.format("%+.2f%%", diffRatio / 100.0));
+                                builder.append(")");
+                                break;
+                            }
+                        }
+                    }
+                    builder.append('\n');
+
+                    builder.append("真爱票: ");
+                    builder.append(loveCount);
+                    builder.append('\n');
+
+                    builder.append("<br>\n");
+
+                    prevSum = thisSum;
+                    prevNum = thisNum;
                 }
-                builder.append("\n");
-                builder.append("普通票: ").append(voteCount);
-                builder.append("\n");
-                builder.append("真爱票: ").append(loveCount);
-                builder.append("\n<br/>\n");
-                prevVote = thisCount;
-            }
+            });
         }
 
         return new HandlerResult(builder.toString(), getUnionData(idToChnName, unionVoteData));
@@ -222,6 +273,40 @@ public abstract class Handler {
         builder.append(" (");
         builder.append(string);
         builder.append(")");
+    }
+
+
+    private static void fetchResult(String url, Consumer<JSONObject> consumer) {
+        try {
+            String body = Jsoup.connect(url)
+                    .ignoreContentType(true)
+                    .execute()
+                    .body();
+            JSONObject root = new JSONObject(body);
+            if (root.getInt("code") == 0 && root.getString("message").equals("success")) {
+                consumer.accept(root);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void fetchGroup(int groupId, Consumer<JSONObject> consumer) {
+        String urlPrefix = "https://api.bilibili.com/pgc/moe/2018/2/api/schedule/ranking?group_id=";
+        fetchResult(urlPrefix + groupId, root -> {
+            String thisText = root.toString();
+            String readText = null;
+            try {
+                readText = readText("output/data/" + groupId);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            if (readText != null && !thisText.equals(readText)) {
+                root.put("prevResult", new JSONObject(readText).getJSONArray("result"));
+            }
+            writeText(thisText, new File("output/data/" + groupId));
+            consumer.accept(root);
+        });
     }
 
 }
