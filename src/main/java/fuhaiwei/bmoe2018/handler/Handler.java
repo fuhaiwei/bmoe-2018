@@ -7,7 +7,9 @@ import org.jsoup.Jsoup;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -122,7 +124,7 @@ public abstract class Handler {
                     builder.append(j + 1);
                     builder.append(": ");
                     builder.append(thisChn.getString("chn_name"));
-                    builder.append('\n');
+                    builder.append("\n");
 
                     builder.append("总票数: ");
                     builder.append(thisSum);
@@ -131,7 +133,7 @@ public abstract class Handler {
                         builder.append(prevSum - thisSum);
                         builder.append("票)");
                     }
-                    builder.append('\n');
+                    builder.append("\n");
 
                     builder.append("票增数: ");
                     builder.append(thisNum);
@@ -140,7 +142,7 @@ public abstract class Handler {
                         builder.append(+(thisNum - prevNum));
                         builder.append("票)");
                     }
-                    builder.append('\n');
+                    builder.append("\n");
 
                     builder.append("得票率: ");
                     builder.append(String.format("%.2f%%", thisRatio / 100.0));
@@ -148,7 +150,7 @@ public abstract class Handler {
                         JSONArray prevResult = root.getJSONArray("prevResult");
                         for (int k = 0; k < prevResult.length(); k++) {
                             JSONObject prevChn = prevResult.getJSONObject(k);
-                            if (prevChn.getInt("character_id") == thisChn.getInt("character_id")) {
+                            if (prevChn.getInt("character_id") == thisChnId) {
                                 int prevRatio = prevChn.getInt("ballot_ratio");
                                 int diffRatio = thisRatio - prevRatio;
                                 builder.append(" (");
@@ -158,11 +160,11 @@ public abstract class Handler {
                             }
                         }
                     }
-                    builder.append('\n');
+                    builder.append("\n");
 
                     builder.append("真爱票: ");
                     builder.append(loveCount);
-                    builder.append('\n');
+                    builder.append("\n");
 
                     builder.append("<br>\n");
 
@@ -196,20 +198,30 @@ public abstract class Handler {
     private static Map<Integer, String> getUnionData(Map<Integer, String> idToChnName, Map<Integer, Map<String, Integer>> unionVoteData) {
         Map<Integer, String> unionData = new HashMap<>();
         unionVoteData.forEach((voteCount, voteMap) -> {
-            Map<String, Integer> treeMap = new TreeMap<>((k1, k2) -> voteMap.get(k2) - voteMap.get(k1));
-            treeMap.putAll(voteMap);
-
             StringBuilder builder = new StringBuilder();
             builder.append("====");
             builder.append(voteCount);
             builder.append("连记分析====");
             builder.append("\n");
-            treeMap.forEach((k, v) -> {
-                String collect = Stream.of(k.split(","))
-                        .map(idText -> idToChnName.get(Integer.valueOf(idText)))
-                        .collect(Collectors.joining(" + "));
-                builder.append(collect).append(" = ").append(v).append("\n");
-            });
+
+            voteMap.entrySet().stream()
+                    .sorted((e1, e2) -> e2.getValue() - e1.getValue())
+                    .limit(500)
+                    .forEach(e -> {
+                        String collect = Stream.of(e.getKey().split(","))
+                                .map(idText -> idToChnName.get(Integer.valueOf(idText)))
+                                .collect(Collectors.joining(" + "));
+                        builder.append(collect);
+                        builder.append(" = ");
+                        builder.append(e.getValue());
+                        builder.append("\n");
+                    });
+
+            builder.append("共有");
+            builder.append(voteMap.size());
+            builder.append("条，最多显示500条。");
+            builder.append("\n");
+
             unionData.put(voteCount, builder.toString());
         });
         return unionData;

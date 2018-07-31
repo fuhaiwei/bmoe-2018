@@ -18,6 +18,18 @@ import static java.time.format.DateTimeFormatter.ofPattern;
 public class RunTask {
 
     public static void main(String[] args) {
+        for (int i = 0; i < 3; i++) {
+            try {
+                executeTask();
+                break;
+            } catch (RuntimeException e) {
+                e.printStackTrace();
+            }
+        }
+        System.out.println("Done!");
+    }
+
+    private static void executeTask() {
         JSONObject current = fetchCurrent();
         if (current != null) {
             JSONArray voteGroups = current.getJSONArray("voteGroups");
@@ -41,7 +53,6 @@ public class RunTask {
 
             writeText(buildHtml(dateText, groupCount), new File("output/bmoe2018.html"));
         }
-        System.out.println("Done!");
     }
 
     private static String fileName() {
