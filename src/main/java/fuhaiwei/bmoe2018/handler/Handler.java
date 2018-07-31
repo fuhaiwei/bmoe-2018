@@ -3,19 +3,14 @@ package fuhaiwei.bmoe2018.handler;
 import fuhaiwei.bmoe2018.utils.Permutations;
 import org.json.JSONArray;
 import org.json.JSONObject;
-import org.jsoup.Jsoup;
 
-import java.io.File;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static fuhaiwei.bmoe2018.utils.FileUtil.readText;
-import static fuhaiwei.bmoe2018.utils.FileUtil.writeText;
+import static fuhaiwei.bmoe2018.spider.BmoeSpider.fetchGroup;
 
 public abstract class Handler {
 
@@ -274,37 +269,5 @@ public abstract class Handler {
         builder.append(")");
     }
 
-
-    private static void fetchResult(String url, Consumer<JSONObject> consumer) {
-        try {
-            String body = Jsoup.connect(url)
-                    .ignoreContentType(true)
-                    .execute()
-                    .body();
-            JSONObject root = new JSONObject(body);
-            if (root.getInt("code") == 0 && root.getString("message").equals("success")) {
-                consumer.accept(root);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private static void fetchGroup(int groupId, Consumer<JSONObject> consumer) {
-        String urlPrefix = "https://api.bilibili.com/pgc/moe/2018/2/api/schedule/ranking?group_id=";
-        fetchResult(urlPrefix + groupId, root -> {
-            String thisText = root.toString();
-            String readText = null;
-            try {
-                readText = readText("output/data/" + groupId);
-            } catch (IOException ignored) {
-            }
-            if (readText != null && !thisText.equals(readText)) {
-                root.put("prevResult", new JSONObject(readText).getJSONArray("result"));
-            }
-            writeText(thisText, new File("output/data/" + groupId));
-            consumer.accept(root);
-        });
-    }
 
 }

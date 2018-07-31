@@ -9,7 +9,10 @@ import java.io.File;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
+import static fuhaiwei.bmoe2018.utils.FileUtil.readText;
+import static fuhaiwei.bmoe2018.utils.FileUtil.writeText;
 import static java.time.format.DateTimeFormatter.ofPattern;
 
 public abstract class BmoeSpider {
@@ -25,7 +28,7 @@ public abstract class BmoeSpider {
                         .execute()
                         .body();
                 JSONObject root = new JSONObject(jsonText);
-                if (root.getInt("code") == 0 && "success".equals(root.getString("message"))) {
+                if (isSuccess(root)) {
                     JSONObject result = root.getJSONObject("result");
                     JSONObject object = new JSONObject();
                     object.put("title", result.getString("title"));
@@ -94,7 +97,7 @@ public abstract class BmoeSpider {
                     System.out.printf("已读取现有数据[page=%d]%n", page);
                 }
                 JSONObject root = new JSONObject(jsonText);
-                if (root.getInt("code") == 0 && "success".equals(root.getString("message"))) {
+                if (isSuccess(root)) {
                     JSONArray result = root.getJSONArray("result");
                     int length = result.length();
 
@@ -122,12 +125,48 @@ public abstract class BmoeSpider {
 
     private static boolean isFullData(String jsonText) {
         JSONObject root = new JSONObject(jsonText);
-        if (root.getInt("code") == 0 && "success".equals(root.getString("message"))) {
-            if (root.getJSONArray("result").length() == 50) {
-                return true;
-            }
-        }
-        return false;
+        return isSuccess(root) && root.getJSONArray("result").length() == 50;
     }
 
+    private static boolean isSuccess(JSONObject root) {
+        return root.getInt("code") == 0 && "success".equals(root.getString("message"));
+    }
+
+    public static void fetchGroup(int groupId, Consumer<JSONObject> consumer) {
+        String urlPrefix = "https://api.bilibili.com/pgc/moe/2018/2/api/schedule/ranking?group_id=";
+        fetchResult(urlPrefix + groupId, body -> {
+            String readText = null;
+            try {
+                readText = readText("output/data/" + groupId);
+            } catch (IOException ignored) {
+            }
+            JSONObject root = new JSONObject(body);
+            if (readText != null && !body.equals(readText)) {
+                root.put("prevResult", new JSONObject(readText).getJSONArray("result"));
+            }
+            writeText(body, new File("output/data/" + groupId));
+            consumer.accept(root);
+        });
+    }
+
+    private static void fetchResult(String url, Consumer<String> consumer) {
+        int err = 0;
+        while (true) {
+            try {
+                String body = Jsoup.connect(url)
+                        .ignoreContentType(true)
+                        .timeout(3000)
+                        .execute()
+                        .body();
+                consumer.accept(body);
+                break;
+            } catch (IOException e) {
+                if (++err > 10) {
+                    System.out.println("失败次数大于10次，链接为：" + url);
+                    e.printStackTrace();
+                    break;
+                }
+            }
+        }
+    }
 }
