@@ -37,7 +37,7 @@ public abstract class BmoeSpider {
                 } else {
                     break;
                 }
-            } catch (IOException e) {
+            } catch (IOException | RuntimeException e) {
                 if (++err > 10) {
                     System.out.println("失败次数大于10次，链接为：" + url);
                     e.printStackTrace();
@@ -112,7 +112,7 @@ public abstract class BmoeSpider {
                 }
                 page += step;
                 err = 0;
-            } catch (IOException e) {
+            } catch (IOException | RuntimeException e) {
                 if (++err > 10) {
                     System.out.println("失败次数大于10次，链接为：" + String.format(url, page));
                     e.printStackTrace();
@@ -160,7 +160,7 @@ public abstract class BmoeSpider {
                         .body();
                 consumer.accept(body);
                 break;
-            } catch (IOException e) {
+            } catch (IOException | RuntimeException e) {
                 if (++err > 10) {
                     System.out.println("失败次数大于10次，链接为：" + url);
                     e.printStackTrace();
