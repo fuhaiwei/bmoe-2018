@@ -51,7 +51,9 @@ public class RunTask {
                 writeText(unionData, fileFormat("output/%s/连记%d.txt", dateText, voteCount));
             });
 
-            writeText(buildHtml(dateText, groupCount), new File("output/bmoe2018.html"));
+            String htmlText = buildHtml(dateText, groupCount);
+            writeText(htmlText, new File("output/bmoe2018.html"));
+            writeText(htmlText, fileFormat("output/%s/bmoe2018.html", dateText));
         }
     }
 
