@@ -4,6 +4,8 @@ import fuhaiwei.bmoe2018.utils.Permutations;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -82,17 +84,57 @@ public abstract class Handler {
 
         StringBuilder builder = new StringBuilder();
 
-        appendHeader(builder, current, dataCount);
-        appendVoteData(builder, voteCountCount, groupCount, dataCount);
+        builder.append(current.getString("title"));
+        appendQuote(builder, "本日总投票人数: " + dataCount);
+        builder.append("\n");
+
+        String timeText = LocalTime.now().format(DateTimeFormatter.ofPattern("HHmm"));
+        builder.append("<ul>\n");
+        for (int i = 0; i < groupCount; i++) {
+            JSONObject group = voteGroups.getJSONObject(i);
+            String groupName = group.getString("group_name");
+            builder.append("<li><a href='#");
+            builder.append(timeText);
+            builder.append(groupName);
+            builder.append("'>");
+            builder.append(groupName);
+            builder.append("</a></li>\n");
+        }
+        builder.append("</ul>\n");
+
+        Integer loveVoteCount = voteCountCount.get(0);
+        builder.append("本日技术分析: \n");
+
+        if (loveVoteCount != null) {
+            builder.append("投真爱人数: ");
+            builder.append(loveVoteCount);
+            appendQuote(builder, percent(loveVoteCount, dataCount));
+            builder.append("\n");
+        }
+
+        for (int i = 0; i < groupCount; i++) {
+            Integer countVoteCount = voteCountCount.get(i + 1);
+            if (countVoteCount != null) {
+                builder.append("投").append(i + 1).append("票人数: ").append(countVoteCount);
+                appendQuote(builder, percent(countVoteCount, dataCount));
+                builder.append("\n");
+            }
+        }
+        builder.append("<br/>\n");
 
         for (int i = 0; i < groupCount; i++) {
             JSONObject group = voteGroups.getJSONObject(i);
             String groupName = group.getString("group_name");
             Integer groupVoteCount = groupNameToVote.get(groupName);
 
-            builder.append("====");
+            builder.append("<div id='");
+            builder.append(timeText);
             builder.append(groupName);
-            builder.append("====");
+            builder.append("' style='padding-top:10px'>");
+
+            builder.append("<font color='red'>====");
+            builder.append(groupName);
+            builder.append("====</font>");
             if (groupVoteCount != null) {
                 String groupVoteData = String.format("小组投票总人数: %d, %s",
                         groupVoteCount, percent(groupVoteCount, dataCount));
@@ -167,6 +209,7 @@ public abstract class Handler {
                     prevNum = thisNum;
                 }
             });
+            builder.append("</div>");
         }
 
         return new HandlerResult(builder.toString(), getUnionData(idToChnName, unionVoteData));
@@ -220,35 +263,6 @@ public abstract class Handler {
             unionData.put(voteCount, builder.toString());
         });
         return unionData;
-    }
-
-    private static void appendHeader(StringBuilder builder, JSONObject current, int dataCount) {
-        builder.append(current.getString("title"));
-        appendQuote(builder, "本日总投票人数: " + dataCount);
-        builder.append("\n<br/>\n");
-    }
-
-    private static void appendVoteData(StringBuilder builder, Map<Integer, Integer> personVoteCount,
-                                       int groupCount, int dataCount) {
-        Integer loveVoteCount = personVoteCount.get(0);
-        builder.append("本日技术分析: \n");
-
-        if (loveVoteCount != null) {
-            builder.append("投真爱人数: ");
-            builder.append(loveVoteCount);
-            appendQuote(builder, percent(loveVoteCount, dataCount));
-            builder.append("\n");
-        }
-
-        for (int i = 0; i < groupCount; i++) {
-            Integer countVoteCount = personVoteCount.get(i + 1);
-            if (countVoteCount != null) {
-                builder.append("投").append(i + 1).append("票人数: ").append(countVoteCount);
-                appendQuote(builder, percent(countVoteCount, dataCount));
-                builder.append("\n");
-            }
-        }
-        builder.append("<br/>\n");
     }
 
     private static <T> Integer safeGet(Map<T, Integer> map, T key) {
