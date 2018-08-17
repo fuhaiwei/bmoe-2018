@@ -6,6 +6,7 @@ import org.json.JSONObject;
 
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -149,6 +150,8 @@ public abstract class Handler {
                 int prevSum = 0;
                 int prevNum = 0;
 
+                sortVoteInfo(voteInfo);
+
                 for (int j = 0; j < voteInfo.length(); j++) {
                     JSONObject thisChn = voteInfo.getJSONObject(j);
 
@@ -213,6 +216,17 @@ public abstract class Handler {
         }
 
         return new HandlerResult(builder.toString(), getUnionData(idToChnName, unionVoteData));
+    }
+
+    private static void sortVoteInfo(JSONArray voteInfo) {
+        JSONObject[] chnArray = new JSONObject[voteInfo.length()];
+        for (int j = 0; j < voteInfo.length(); j++) {
+            chnArray[j] = voteInfo.getJSONObject(j);
+        }
+        Arrays.sort(chnArray, (o1, o2) -> o2.getInt("ballot_sum") - o1.getInt("ballot_sum"));
+        for (int j = 0; j < voteInfo.length(); j++) {
+            voteInfo.put(j, chnArray[j]);
+        }
     }
 
     public static class HandlerResult {
